@@ -1,0 +1,271 @@
+---
+title: "Week 27 X-Men"
+author: "Alonso Cordova"
+date: "6/29/2020"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+Load Packages
+```{r}
+library(tidytuesdayR)
+library(tidyverse)
+library(skimr)
+library(ggplot2)
+library(cowplot)
+```
+
+
+
+Call Data
+```{r}
+# tuesdata <- tidytuesdayR::tt_load('2020-06-30')
+# tuesdata <- tidytuesdayR::tt_load(2020, week = 27)
+# 
+# comic_bechdel <- tuesdata$comic_bechdel
+# characters <- tuesdata$characters
+
+characters <- read_delim("characters.csv", col_names = TRUE, delim = ",")
+
+```
+
+
+
+
+
+Skim variables, mostly to see n missing
+```{r}
+
+#skim_comic <- skim(comic_bechdel)
+skim_char  <- skim(characters)
+
+
+```
+
+
+
+
+
+
+Prepare data for plot
+# End result is sum of specified events per character
+```{r}
+df <- characters %>% select(2,3,4,7,8,14,31,32,33)
+
+df <- separate(df, character, into = c("alias", "name"), sep = "=") %>% select(-(name))
+
+
+
+df <- gather(df,event,value,2:9)
+
+df$value <- as.numeric(df$value)
+
+df <- df %>%
+  group_by(alias,event) %>% 
+  summarise(value = sum(value)) %>%  
+  ungroup()
+
+df <- na.omit(df)
+
+
+```
+
+
+```{r}
+
+
+df$alias <- str_trim(df$alias, side = c("both"))
+
+
+df <- df %>% mutate(gender = case_when(alias == 'Angel' ~ 'M',
+                                            alias == 'Ariel/Sprite/Shadowcat' ~ 'F',
+                                            alias == 'Banshee' ~ 'F',
+                                            alias == 'Binary/Ms Marvel' ~ 'F',
+                                            alias == 'Colossus' ~ 'M',
+                                            alias == 'Cyclops' ~ 'M',
+                                            alias == 'Dazzler' ~ 'F',
+                                            alias == 'Forge' ~ 'M',
+                                            alias == 'Gambit' ~ 'M',
+                                            alias == 'Havok' ~ 'M',
+                                            alias == 'Jubilee' ~ 'F',
+                                            alias == 'Longshot' ~ 'M',
+                                            alias == 'Magneto' ~ 'M',
+                                            alias == 'Marvel Girl/Phoenix' ~ 'F',
+                                            alias == 'Moira MacTaggert (scientist helper)' ~ 'F',
+                                            alias == 'Mystique' ~ 'F',
+                                            alias == 'Nightcrawler' ~ 'M',
+                                            alias == 'Phoenix(2)' ~ 'F',
+                                            alias == 'Professor X' ~ 'M',
+                                            alias == 'Psylocke' ~ 'F',
+                                            alias == 'Rogue' ~ 'F',
+                                            alias == 'Storm' ~ 'F',
+                                            alias == 'Wolverine' ~ 'M',
+                                            TRUE ~ ''
+                                            ),
+                    event = case_when(event == 'captured' ~'Captured',
+                                      event == 'clothing_torn' ~'Clothing Torn',
+                                      event == 'rendered_unconcious' ~'Rendered Unconcious',
+                                      event == 'depowered' ~'Depowered',
+                                      event == 'depicted_eating_food' ~'Depicted Eating Food',
+                                      event == 'visible_tears_number_of_intances' ~'Visible Tears Instances',
+                                      event == 'visible_tears_number_of_panels' ~'Visible Tears Panels',
+                                      TRUE ~ event))
+```
+
+
+
+
+
+
+
+
+
+# Create Plot Function
+```{r pressure}
+
+make.plot <- function(event_type) {
+  
+  to_plot <- df %>% filter(event_type == event)   
+  #
+
+  to_plot <-  arrange(to_plot, value ) 
+  
+
+  to_plot$alias <-  factor(to_plot$alias) %>%   
+    fct_inorder()                                           
+                                                      
+
+  to_plot <- to_plot %>% tail(10)
+  
+  n_max_y <- max(to_plot$value)  # used to set limit
+  
+  ###################################################################
+ ggplot(to_plot,aes(alias, value,fill = gender)) +
+    geom_bar(stat = "identity", 
+             color = 'black', 
+             width = .65,
+             position = position_dodge(width = .75)) +
+    geom_text(label = to_plot$value,
+              position = position_dodge(width = .75),
+              size = 3.5, fontface = 'bold',
+              hjust = -.50) +
+    labs(title = event_type,
+         subtitle = '',
+         x = '',
+         y = '',
+         fill = '') + # used for legend name
+    scale_y_continuous(limits = c(0,n_max_y + 5), expand = c(0,0)) + 
+    scale_fill_manual(values = c('#FFFF00','#FC3F3F')) +
+    coord_flip() +
+    theme (
+      plot.title        = element_text(face = 'bold', size = 14, hjust = .5, vjust = -4),
+      plot.subtitle     = element_text(face = 'bold', size = 12),
+      plot.caption      = element_text(size = 8),
+      ##
+      panel.background  = element_blank(),
+      panel.grid        = element_blank(),
+      ##
+      legend.title = element_blank(),
+      legend.position    = "none", # top right
+      # legend.direction   = 'horizontal',
+      ##
+      axis.title.x      = element_text(face = 'bold', size = 10),
+      axis.text.x       = element_blank(),
+      ##
+      axis.title.y      = element_blank(),
+      axis.text.y       = element_text(face = 'bold', size = 10),
+      ##
+      axis.ticks        = element_blank(),
+      plot.margin       = unit(c(.25, .25, .25, .25), "in")) #+
+  
+  
+  # ___________________________________________________________________________________________ 
+}
+
+
+```
+
+
+
+
+
+
+Execute function on event variable 
+```{r}
+p1 <- make.plot("Captured")
+p2 <- make.plot("Clothing Torn")
+p3 <- make.plot("Rendered Unconcious")
+p4 <- make.plot("Depowered")
+p5 <- make.plot("Depicted Eating Food")
+p6 <- make.plot("Visible Tears Instances")
+p7 <- make.plot("Visible Tears Panels")
+
+
+
+
+p1
+p2
+p3
+p4
+p5
+p6
+p7
+
+```
+
+
+
+
+
+
+
+
+Combine with cowplot functions
+Note: Only plotting 4 of 7 for testing.
+  Events related to tears show interesting results concerning gender disparities 
+```{r}
+
+
+plt <- plot_grid(p1, p2,p3,p4,nrow = 2, ncol = 2, align = 'vh')
+
+
+#plt
+
+
+
+title1 <- ggdraw() + draw_label(paste0('X-Men: Non-Ideal Events'), 
+                                colour = 'black', size = 14, fontface = 'bold')
+
+
+plots <- plot_grid(title1, plt, ncol =1,  rel_heights = c(0.05, 1))
+
+
+
+plots <- add_sub(plots,"      Data: Claremont Run of X-Men \n    TidyTuesday Week 27: @alocord ", 
+                 size = 10, colour = 'black', x = .5, hjust = -1.75)
+
+
+
+plots <- plot_grid(plots, ncol = 1, rel_heights = c(0.05, 0.90))
+
+legend <- get_legend(
+  p1 + theme(legend.box.margin = margin(0, 0, 0, 12), legend.position = "bottom")
+)
+
+plots <- plot_grid(plots, legend,  ncol = 2, rel_widths = c(3, .4))
+
+
+
+plots
+
+ggsave(plot=plots, "X-Men.png", bg="transparent", width = 12, height = 6.5, dpi=400)
+
+```
+
+
